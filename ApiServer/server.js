@@ -4,10 +4,28 @@ const myEmitter = require('./myEmitter.js');
 const cp = require('child_process');
 //const spawn = require('child_process').spawn;
 const pq = require('./priorityQueue');
-const rx = require('./rx');
+//const rx = require('./rx');
+const Rx = require('./rx.lite.js');
 
 const hostname = '127.0.0.1';
 const port = 3000;
+
+// Using a function
+var source = Rx.Observable.from([1,2,3])
+    .select(function (x, idx, obs) {
+        return x * x;
+    });
+
+var subscription = source.subscribe(
+    function (x) {
+        console.log('Next: ' + x);
+    },
+    function (err) {
+        console.log('Error: ' + err);
+    },
+    function () {
+        console.log('Completed');
+    });
 
 /*const wp = cp.fork(`${__dirname}/fibonacci.js`, [100], {
    execArgv: ['--debug-brk=6001']
