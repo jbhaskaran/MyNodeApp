@@ -4,28 +4,11 @@ const myEmitter = require('./myEmitter.js');
 const cp = require('child_process');
 //const spawn = require('child_process').spawn;
 const pq = require('./priorityQueue');
-//const rx = require('./rx');
-const Rx = require('./rx.lite.js');
+//const Rx = require('./rx.lite.js');
+const Rx = require('./rx');
 
 const hostname = '127.0.0.1';
 const port = 3000;
-
-// Using a function
-var source = Rx.Observable.from([1,2,3])
-    .select(function (x, idx, obs) {
-        return x * x;
-    });
-
-var subscription = source.subscribe(
-    function (x) {
-        console.log('Next: ' + x);
-    },
-    function (err) {
-        console.log('Error: ' + err);
-    },
-    function () {
-        console.log('Completed');
-    });
 
 /*const wp = cp.fork(`${__dirname}/fibonacci.js`, [100], {
    execArgv: ['--debug-brk=6001']
@@ -37,6 +20,34 @@ wp.on('message', function(data) {
 });
 
 wp.send({ hello: 'world' });*/
+
+var scheduler = Rx.Scheduler.micro;
+var id = scheduler.scheduleRecursive(
+  function (x, self) {
+    console.log(x);
+    if (++x < 3) { self(x); }
+  }
+);
+
+//var scheduler = Rx.Scheduler.default;
+/*var disposable = scheduler.schedule(
+   'world',
+   function (scheduler, x) {
+      console.log('hello ' + x);
+   });*/
+
+//var scheduler = Rx.Scheduler.immediate;
+/*var disposable = scheduler.scheduleRecursive(
+  0,
+  function (x, self) {
+    console.log(x);
+    if (++x < 3) { self(x); }
+  }
+);*/
+
+// => 0
+// => 1
+// => 2
 
 const pq1 = new pq();
 pq1.enqueue({val: 'Eason', priority: 5});

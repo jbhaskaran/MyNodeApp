@@ -1,33 +1,85 @@
-var inherits = require('./inherits')
-(function() {
+var inherits = require('./inherit')
+var Rx = (function() {
     var noop = function() { },
         defaultError = function(err) { throw err; };
+    var Rx = {};
 
     function isFunction(value) {
         return typeof value === 'function' || false;
         //Object.prototype.toString.call(value) === '[object Function]';
     }
 
-    var Scheduler = (function() {
-        function Scheduler(timeout, fn) {
-            this._timeout = timeout || 0;
-            this._fn = fn;
+    var Scheduler = Rx.Scheduler = (function() {
+        function Scheduler() {
+            
         }
         Scheduler.prototype.schedule = function() {
-            setTimeout(function() {
-                this._fn();
-            }, this._timeout);
+            console.log("just here");
         }
+
         return Scheduler;
     }());
 
-    var MicroTaskScheduler = (function(__super__) {
-        inherits(MicroTaskScheduler, __super__);
-        function MicroTaskScheduler(timeout, fn) {
-            __super__.call(this, timeout, fn);
+    (function(schedulerProto) {
+
+        function invokeRecImmediate(scheduler, action) {
+            function innerAction() {
+                scheduler.schedule(action, scheduleWork);
+                function scheduleWork() {
+                    action(innerAction);
+                }
+            }
         }
-        return MicroTaskScheduler;
+        schedulerProto.scheduleRecursive = function(action) {
+            return this.schedule(action, invokeRecImmediate);
+        }
+
+    })(Scheduler.prototype);
+
+
+
+    var scheduleMethod, clearMethod;
+    (function() {
+        var nextHandle = 1, tasksByHandle = {};
+        clearMethod = function (id) {
+            delete tasksByHandle[id];
+        }
+        function runTask(id) {
+            var task = tasksByHandle[id];
+            if(task) {
+                var result = task();
+                clearMethod(id);
+            }
+        }
+        if(isFunction(setImmediate)) {
+            scheduleMethod = function(action) {
+                var id = nextHandle++;
+                tasksByHandle[id] = action;
+                setImmediate(function() { runTask(id) });
+                return id;
+            }
+        }
+    }());
+
+    var MicroTaskScheduler = (function(__super__) {
+    inherits(MicroTaskScheduler, __super__);
+    function MicroTaskScheduler() {
+        __super__.call(this);
+    }
+
+    function scheduleAction(action, scheduler) {
+        return function schedule() {
+            action(scheduler);
+        }
+    }
+    MicroTaskScheduler.prototype.schedule = function(action) {
+        var id = scheduleMethod(scheduleAction(action, this));
+        return id;
+    }
+    return MicroTaskScheduler;
     })(Scheduler);
+
+    var microTaskScheduler = Scheduler['micro'] = Scheduler.async = new MicroTaskScheduler();
 
     var Observer = function () { };
     var observerCreate = Observer.create = function(onNext, onError, onCompleted) {
@@ -88,6 +140,7 @@ var inherits = require('./inherits')
             }
         }
         return FromObservable;
-    })();
-
-}.call(this));
+    })(Observable);
+    return Rx;
+})();
+module.exports = Rx;
