@@ -13,6 +13,9 @@ var Rx = (function() {
         function Scheduler() {
             
         }
+        Scheduler.isScheduler = function (s) {
+            return s instanceof Scheduler;
+        }
         Scheduler.prototype.schedule = function() {
             console.log("just here");
         }
@@ -22,21 +25,22 @@ var Rx = (function() {
 
     (function(schedulerProto) {
 
-        function invokeRecImmediate(scheduler, action) {
-            function innerAction() {
-                scheduler.schedule(action, scheduleWork);
-                function scheduleWork() {
-                    action(innerAction);
+        function invokeRecImmediate(pair, scheduler) {
+            var state = pair[0], action = pair[1];
+            action(state, innerAction);
+            return;
+            function innerAction(state2) {
+                scheduler.schedule(state2, scheduleWork);
+                function scheduleWork(state3) {
+                    action(state3, innerAction);
                 }
             }
         }
-        schedulerProto.scheduleRecursive = function(action) {
-            return this.schedule(action, invokeRecImmediate);
+        schedulerProto.scheduleRecursive = function(state, action) {
+            return this.schedule([state, action], invokeRecImmediate);
         }
 
     })(Scheduler.prototype);
-
-
 
     var scheduleMethod, clearMethod;
     (function() {
@@ -67,13 +71,13 @@ var Rx = (function() {
         __super__.call(this);
     }
 
-    function scheduleAction(action, scheduler) {
+    function scheduleAction(state, action, scheduler) {
         return function schedule() {
-            action(scheduler);
+            action(state, scheduler);
         }
     }
-    MicroTaskScheduler.prototype.schedule = function(action) {
-        var id = scheduleMethod(scheduleAction(action, this));
+    MicroTaskScheduler.prototype.schedule = function(state, action) {
+        var id = scheduleMethod(scheduleAction(state, action, this));
         return id;
     }
     return MicroTaskScheduler;
@@ -109,7 +113,7 @@ var Rx = (function() {
         return AnonymousObserver;
     })(Observer);
 
-    var Observable = (function(){
+    var Observable = Rx.Observable = (function() {
         function Observable() {
 
         }
@@ -117,7 +121,7 @@ var Rx = (function() {
             return o && isFunction(o.subscribe);
         }
         Observable.prototype.subscribe = function(onNext, onError, onCompleted) {
-            return this._subscribe(observerCreate(onNext, onError, onCompleted));
+            return this.subscribeCore(observerCreate(onNext, onError, onCompleted));
         }
         return Observable;
     }());
@@ -132,15 +136,30 @@ var Rx = (function() {
         }
         FromObservable.prototype.subscribeCore = function(o) {
             let list = Object(this._iterable);
-            return this._scheduler.schedule(0, createScheduleMethod(o, list, this._fn));
+            return this._scheduler.scheduleRecursive(0, scheduleMethod(o, list, this._fn));
         }
-        function createScheduleMethod(o, it, fn) {
-            return function loopRecursive() {
-                
+        function scheduleMethod(o, it, fn) {
+            var len = it.length;
+            return function loopRecursive(i, recurse) {
+                if(i < len) {
+                    var result = it[i];
+                    o.next(result);
+                    recurse(i + 1);
+                }
+                else {
+                    o.completed();
+                }
+
             }
         }
         return FromObservable;
     })(Observable);
+
+    Observable.from = function(iterable, fn, scheduler) {
+        Scheduler.isScheduler(scheduler) || (scheduler = microTaskScheduler);
+        return new FromObservable(iterable, fn, scheduler);
+    } 
+
     return Rx;
 })();
 module.exports = Rx;

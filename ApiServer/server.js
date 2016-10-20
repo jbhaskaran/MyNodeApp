@@ -22,12 +22,26 @@ wp.on('message', function(data) {
 wp.send({ hello: 'world' });*/
 
 var scheduler = Rx.Scheduler.micro;
-var id = scheduler.scheduleRecursive(
+//var scheduler = Rx.Scheduler.default;
+/*var id = scheduler.scheduleRecursive(0,
   function (x, self) {
     console.log(x);
     if (++x < 3) { self(x); }
   }
-);
+);*/
+
+var source = Rx.Observable.from([9, 8, 7], null, null, scheduler);
+source.subscribe(
+  function (x) {
+    console.log('Next: ' + x);
+  },
+  function (err) {
+    console.log('Error: ' + err);
+  },
+  function () {
+    console.log('Completed');
+  }
+)
 
 //var scheduler = Rx.Scheduler.default;
 /*var disposable = scheduler.schedule(
